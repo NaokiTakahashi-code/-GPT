@@ -1,96 +1,6 @@
-// ✅ Naoki式 GPT診断支援アプリ プロジェクト構成一括テンプレート
-// 使用技術：Next.js + TypeScript + TailwindCSS + OpenAI API（GPT-4 Turbo）
+// ✅ Naoki式 構造化診断支援AI Webアプリ（Next.js + GPT-4 Turbo 対応）
+// 📁 pages/api/diagnose.ts
 
-// -------------------------------
-// 📁 package.json（リポジトリ直下に配置）
-// -------------------------------
-{
-  "name": "naoki-med-gpt",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "next": "13.4.12",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.4",
-    "tailwindcss": "^3.3.2",
-    "postcss": "^8.4.24",
-    "autoprefixer": "^10.4.14"
-  }
-}
-
-// 📁 注意：この package.json を GitHub リポジトリの**最上位ディレクトリ（ルート）**に置いてください。
-
-// -------------------------------
-// 📁 /pages/index.tsx
-// -------------------------------
-import { useState } from "react";
-
-export default function DiagnosticApp() {
-  const [inputText, setInputText] = useState("");
-  const [result, setResult] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    setResult("");
-
-    const response = await fetch("/api/diagnose", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content: `あなたは、医学生・研修医向けの構造化診断支援AIです。\nEBMとNBMの視点から、診断推論を行ってください。出力は教育目的です。...（略）`
-          },
-          { role: "user", content: inputText }
-        ]
-      }),
-    });
-
-    const data = await response.json();
-    setResult(data.result);
-    setLoading(false);
-  }
-
-  return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Naoki式 診断支援GPT</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <textarea
-          className="w-full p-4 border rounded-lg shadow"
-          rows={6}
-          placeholder="年齢・性別、主訴、バイタル、生活歴、NBM視点などを入力してください"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-        />
-        <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700" disabled={loading}>
-          {loading ? "診断中..." : "診断する"}
-        </button>
-      </form>
-      {result && (
-        <div className="mt-6 p-4 border rounded-lg bg-gray-50 whitespace-pre-wrap">
-          <h2 className="font-semibold mb-2">診断結果：</h2>
-          <p>{result}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// -------------------------------
-// 📁 /pages/api/diagnose.ts
-// -------------------------------
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
 
@@ -98,69 +8,91 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const SYSTEM_PROMPT = `あなたは、医学生・研修医向けの構造化診断支援AIです。
+EBM（Evidence-Based Medicine）とNBM（Narrative-Based Medicine）の両視点から、GPTが診断推論を行います。
+出力はすべて教育目的であり、診断確定や医療判断の代替ではありません。
+
+---
+
+## 📥【初めて使う方へ：入力ガイド】
+...
+
+## ⑧ 【診断まとめと推奨方針】
+...
+
+📌 判断の根拠（文献／スコア／NBM視点）`;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { messages } = req.body;
+  const { userInput } = req.body;
 
   try {
-    const chatResponse = await openai.chat.completions.create({
-      model: "gpt-4-turbo",
-      messages,
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4-turbo',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userInput }
+      ]
     });
 
-    const result = chatResponse.choices[0]?.message?.content || "No response";
+    const result = completion.choices[0].message?.content || 'No response.';
     res.status(200).json({ result });
   } catch (error) {
-    console.error("GPT API error:", error);
-    res.status(500).json({ result: "エラーが発生しました。" });
+    console.error(error);
+    res.status(500).json({ result: 'エラーが発生しました。' });
   }
 }
 
-// -------------------------------
-// 📁 tailwind.config.js
-// -------------------------------
-module.exports = {
-  content: ["./pages/**/*.{js,ts,jsx,tsx}", "./components/**/*.{js,ts,jsx,tsx}"],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-};
+// 📁 pages/index.tsx
 
-// -------------------------------
-// 📁 postcss.config.js
-// -------------------------------
-module.exports = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-};
+import { useState } from 'react';
 
-// -------------------------------
-// 📁 .gitignore
-// -------------------------------
-node_modules/
-.next/
-.env.local
+export default function Home() {
+  const [inputText, setInputText] = useState('');
+  const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
 
-// -------------------------------
-// 📁 README.md（任意）
-// -------------------------------
-# Naoki式GPT診断支援アプリ
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    const response = await fetch('/api/diagnose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userInput: inputText }),
+    });
+    const data = await response.json();
+    setResult(data.result);
+    setLoading(false);
+  }
 
-これは医学生・研修医向けに構造化された診断支援を提供するGPTアプリです。
-
-- 技術スタック: Next.js / React / TypeScript / TailwindCSS / OpenAI API
-- モデル: GPT-4 Turbo
-
-## 環境変数の設定
-
-`.env.local` に以下を追加してください：
-
-```
-OPENAI_API_KEY=sk-xxxxxxx
-```
+  return (
+    <main className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Naoki式GPT診断ナビゲーター</h1>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <textarea
+          className="w-full p-4 border rounded-md shadow"
+          rows={6}
+          placeholder="例：65歳男性、2日前から右下腹部痛、SpO₂ 96%、圧痛あり..."
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          disabled={loading}
+        >
+          {loading ? '診断中...' : '診断する'}
+        </button>
+      </form>
+      {result && (
+        <div className="mt-6 p-4 bg-gray-50 border rounded whitespace-pre-wrap">
+          <h2 className="text-lg font-semibold mb-2">診断結果</h2>
+          <p>{result}</p>
+        </div>
+      )}
+    </main>
+  );
+}
